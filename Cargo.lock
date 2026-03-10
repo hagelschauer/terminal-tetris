@@ -1243,6 +1243,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "terminal-tetris"
+version = "0.1.0"
+dependencies = [
+ "crossterm",
+ "rand 0.10.0",
+ "ratatui",
+]
+
+[[package]]
 name = "terminfo"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1303,15 +1312,6 @@ dependencies = [
  "wezterm-dynamic",
  "wezterm-input-types",
  "winapi",
-]
-
-[[package]]
-name = "tetris"
-version = "0.1.0"
-dependencies = [
- "crossterm",
- "rand 0.10.0",
- "ratatui",
 ]
 
 [[package]]
