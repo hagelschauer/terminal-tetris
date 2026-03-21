@@ -1,4 +1,4 @@
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use rand::{prelude::*, rng};
 
@@ -25,7 +25,7 @@ pub struct GameState {
     pub score: u64,
 
     rng: ThreadRng,
-    pub last_gravity_tick: Instant
+    pub last_gravity_tick: Instant,
 }
 
 impl GameState {
@@ -42,12 +42,17 @@ impl GameState {
             lines: 0,
             score: 0,
             rng,
-            last_gravity_tick: Instant::now()
+            last_gravity_tick: Instant::now(),
         }
     }
 
     pub fn level(&self) -> u32 {
         (self.lines / 10) + 1
+    }
+
+    pub fn gravity_rate(&self) -> Duration {
+        const LIMIT: u64 = 200;
+        Duration::from_millis((1000 - LIMIT) / self.level() as u64 + LIMIT)
     }
 
     pub fn rotate_clockwise(&mut self) {
@@ -97,6 +102,7 @@ impl GameState {
         } else {
             self.position.1 += 1;
         }
+        self.last_gravity_tick = Instant::now();
     }
 
     pub fn drop(&mut self) {

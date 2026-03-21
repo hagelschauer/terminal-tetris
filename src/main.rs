@@ -5,7 +5,7 @@ mod game_state;
 mod terminal_guard;
 mod tetromino;
 
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use std::vec;
 
 use crossterm::event;
@@ -24,8 +24,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut terminal_guard = TerminalGuard::new()?;
 
     let mut game_state = GameState::initial_state();
-    let mut gravity_rate = Duration::from_millis(1000);
-    let mut last_gravity_tick = Instant::now();
 
     while game_state.game_phase != GamePhase::Quitting {
         terminal_guard
@@ -33,20 +31,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .draw(|frame| render(frame, &game_state))?;
 
         if game_state.game_phase == GamePhase::Running {
+            let gravity_rate = game_state.gravity_rate();
+
             let timeout = gravity_rate
-                .checked_sub(last_gravity_tick.elapsed())
+                .checked_sub(game_state.last_gravity_tick.elapsed())
                 .unwrap_or(Duration::ZERO);
 
             if event::poll(timeout)? {
                 events::on_event(&mut game_state)?;
             }
 
-            if last_gravity_tick.elapsed() >= gravity_rate {
+            if game_state.last_gravity_tick.elapsed() >= gravity_rate {
                 game_state.tick_gravity();
-                last_gravity_tick = Instant::now();
             }
-
-            gravity_rate = Duration::from_millis(1000 / (game_state.level() as u64))
         } else {
             events::on_event(&mut game_state)?;
         }
@@ -154,7 +151,7 @@ fn render_gui(frame: &mut Frame, game_state: &GameState) {
         .border_type(BorderType::Rounded);
 
     let next_block = Block::default()
-        .title_top(Line::from("Next").centered())
+        .title_top(Line::from(" Next ").centered())
         .borders(Borders::all())
         .border_type(BorderType::Rounded);
 
@@ -188,16 +185,16 @@ fn render_scoreboard(frame: &mut Frame, game_state: &GameState, area: Rect) {
 
     let score_display = Paragraph::new(game_state.score.to_text())
         .centered()
-        .block(block.clone().title("Score:"));
+        .block(block.clone().title(" Score: "));
 
     let lines_display = Paragraph::new(game_state.lines.to_text())
         .centered()
-        .block(block.clone().title("Lines:"));
+        .block(block.clone().title(" Lines: "));
 
     let level = game_state.level();
     let level_display = Paragraph::new(level.to_text())
         .centered()
-        .block(block.title("Level:"));
+        .block(block.title(" Level: "));
 
     frame.render_widget(score_display, areas[0]);
     frame.render_widget(lines_display, areas[1]);
