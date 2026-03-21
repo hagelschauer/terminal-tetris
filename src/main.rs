@@ -2,12 +2,15 @@ mod game_phase;
 mod game_renderer;
 mod game_state;
 mod tetromino;
+mod events;
 
 use std::io::stdout;
 use std::time::{Duration, Instant};
 use std::vec;
 
-use crossterm::event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, MouseEventKind};
+use crossterm::event::{
+    self, DisableMouseCapture, EnableMouseCapture,
+};
 
 use crossterm::execute;
 use ratatui::Frame;
@@ -28,69 +31,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut gravity_rate = Duration::from_millis(1000);
         let mut last_gravity_tick = Instant::now();
 
-        'game_loop: loop {
+        while game_state.game_phase != GamePhase::Quitting {
             terminal.draw(|frame| render(frame, &game_state))?;
 
-            match game_state.game_phase {
-                GamePhase::Running => {
-                    let timeout = gravity_rate
-                        .checked_sub(last_gravity_tick.elapsed())
-                        .unwrap_or(Duration::ZERO);
+            if game_state.game_phase == GamePhase::Running {
+                let timeout = gravity_rate
+                    .checked_sub(last_gravity_tick.elapsed())
+                    .unwrap_or(Duration::ZERO);
 
-                    if event::poll(timeout)? {
-                        match event::read()? {
-                            Event::Mouse(mouse) => match mouse.kind {
-                                MouseEventKind::ScrollUp => game_state.rotate_counter_clockwise(),
-                                MouseEventKind::ScrollDown => game_state.rotate_clockwise(),
-                                _ => {}
-                            },
-                            Event::Key(key) => match key.code {
-                                KeyCode::Char('q') => break 'game_loop,
-                                KeyCode::Esc => game_state.game_phase = GamePhase::Paused,
-                                KeyCode::Left => game_state.move_left(),
-                                KeyCode::Right => game_state.move_right(),
-                                KeyCode::Up => game_state.rotate_clockwise(),
-                                KeyCode::Char('z') => game_state.rotate_counter_clockwise(),
-                                KeyCode::Down => {
-                                    game_state.tick_gravity();
-                                    last_gravity_tick = Instant::now();
-                                }
-                                KeyCode::Char(' ') => {
-                                    game_state.drop();
-                                    last_gravity_tick = Instant::now();
-                                }
-                                _ => {}
-                            },
-                            _ => {}
-                        }
-                    }
+                if event::poll(timeout)? {
+                    events::on_event(&mut game_state)?;
+                }
 
-                    if last_gravity_tick.elapsed() >= gravity_rate {
-                        game_state.tick_gravity();
-                        last_gravity_tick = Instant::now();
-                    }
+                if last_gravity_tick.elapsed() >= gravity_rate {
+                    game_state.tick_gravity();
+                    last_gravity_tick = Instant::now();
+                }
 
-                    gravity_rate = Duration::from_millis(1000 / (game_state.level() as u64))
-                }
-                GamePhase::GameOver => {
-                    if let Event::Key(key) = event::read()? {
-                        match key.code {
-                            KeyCode::Char('q') => break 'game_loop,
-                            KeyCode::Char('r') => game_state = GameState::initial_state(),
-                            _ => {}
-                        }
-                    }
-                }
-                GamePhase::Paused => {
-                    if let Event::Key(key) = event::read()? {
-                        match key.code {
-                            KeyCode::Char('c') => game_state.game_phase = GamePhase::Running,
-                            KeyCode::Char('q') => break 'game_loop,
-                            KeyCode::Char('r') => game_state = GameState::initial_state(),
-                            _ => {}
-                        }
-                    }
-                }
+                gravity_rate = Duration::from_millis(1000 / (game_state.level() as u64))
+            } else {
+                events::on_event(&mut game_state)?;
             }
         }
 

@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use rand::{prelude::*, rng};
 
 use crate::{
@@ -23,6 +25,7 @@ pub struct GameState {
     pub score: u64,
 
     rng: ThreadRng,
+    pub last_gravity_tick: Instant
 }
 
 impl GameState {
@@ -39,6 +42,7 @@ impl GameState {
             lines: 0,
             score: 0,
             rng,
+            last_gravity_tick: Instant::now()
         }
     }
 
