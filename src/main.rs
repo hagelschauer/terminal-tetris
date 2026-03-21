@@ -3,11 +3,13 @@ mod game_renderer;
 mod game_state;
 mod tetromino;
 
+use std::io::stdout;
 use std::time::{Duration, Instant};
 use std::vec;
 
-use crossterm::event::{self, Event, KeyCode};
+use crossterm::event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, MouseEventKind};
 
+use crossterm::execute;
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout};
 use ratatui::prelude::*;
@@ -19,6 +21,8 @@ use crate::game_phase::GamePhase;
 use crate::game_state::GameState;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    execute!(stdout(), EnableMouseCapture)?;
+
     ratatui::run(|terminal| {
         let mut game_state = GameState::initial_state();
         let mut gravity_rate = Duration::from_millis(1000);
@@ -33,30 +37,36 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .checked_sub(last_gravity_tick.elapsed())
                         .unwrap_or(Duration::ZERO);
 
-                    if event::poll(timeout)?
-                        && let Event::Key(key) = event::read()?
-                    {
-                        match key.code {
-                            KeyCode::Char('q') => break 'game_loop,
-                            KeyCode::Esc => game_state.game_phase = GamePhase::Paused,
-                            KeyCode::Left => game_state.move_left(),
-                            KeyCode::Right => game_state.move_right(),
-                            KeyCode::Up => game_state.rotate_clockwise(),
-                            KeyCode::Char('z') => game_state.rotate_counter_clockwise(),
-                            KeyCode::Down => {
-                                game_state.tick_gravity();
-                                last_gravity_tick = Instant::now();
+                    if event::poll(timeout)? {
+                        match event::read()? {
+                            Event::Mouse(mouse) => match mouse.kind {
+                                MouseEventKind::ScrollUp => game_state.rotate_counter_clockwise(),
+                                MouseEventKind::ScrollDown => game_state.rotate_clockwise(),
+                                _ => {}
                             },
-                            KeyCode::Char(' ') => {
-                                game_state.drop();
-                                last_gravity_tick = Instant::now();
+                            Event::Key(key) => match key.code {
+                                KeyCode::Char('q') => break 'game_loop,
+                                KeyCode::Esc => game_state.game_phase = GamePhase::Paused,
+                                KeyCode::Left => game_state.move_left(),
+                                KeyCode::Right => game_state.move_right(),
+                                KeyCode::Up => game_state.rotate_clockwise(),
+                                KeyCode::Char('z') => game_state.rotate_counter_clockwise(),
+                                KeyCode::Down => {
+                                    game_state.tick_gravity();
+                                    last_gravity_tick = Instant::now();
+                                }
+                                KeyCode::Char(' ') => {
+                                    game_state.drop();
+                                    last_gravity_tick = Instant::now();
+                                }
+                                _ => {}
                             },
                             _ => {}
                         }
                     }
 
                     if last_gravity_tick.elapsed() >= gravity_rate {
-                        // game_state.tick_gravity();
+                        game_state.tick_gravity();
                         last_gravity_tick = Instant::now();
                     }
 
@@ -84,8 +94,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
 
-        Ok(())
-    })
+        Ok::<(), Box<dyn std::error::Error>>(())
+    })?;
+
+    execute!(stdout(), DisableMouseCapture)?;
+    Ok(())
 }
 
 fn render(frame: &mut Frame, game_state: &GameState) {
@@ -99,7 +112,9 @@ fn render(frame: &mut Frame, game_state: &GameState) {
 }
 
 fn render_gameover_popup(frame: &mut Frame, game_state: &GameState) {
-    let popup_area = frame.area().centered(Constraint::Length(30), Constraint::Length(7));
+    let popup_area = frame
+        .area()
+        .centered(Constraint::Length(30), Constraint::Length(7));
 
     let block = Block::default()
         .title(" Game Over ")
@@ -123,7 +138,9 @@ fn render_gameover_popup(frame: &mut Frame, game_state: &GameState) {
 }
 
 fn render_pause_popup(frame: &mut Frame) {
-    let popup_area = frame.area().centered(Constraint::Length(30), Constraint::Length(5));
+    let popup_area = frame
+        .area()
+        .centered(Constraint::Length(30), Constraint::Length(5));
 
     let block = Block::default()
         .title(" Paused ")
@@ -142,13 +159,14 @@ fn render_pause_popup(frame: &mut Frame) {
 fn render_gui(frame: &mut Frame, game_state: &GameState) {
     let root_area = frame.area().centered(
         Constraint::Length(
-        2 + 4
-            + 8
-            + 2
-            + game_renderer::PHYSICAL_BOARD_WIDTH
-            + 2
-            + game_renderer::PHYSICAL_NEXT_WIDTH
-            + 2),
+            2 + 4
+                + 8
+                + 2
+                + game_renderer::PHYSICAL_BOARD_WIDTH
+                + 2
+                + game_renderer::PHYSICAL_NEXT_WIDTH
+                + 2,
+        ),
         Constraint::Length(game_renderer::PHYSICAL_BOARD_HEIGHT + 2 + 2),
     );
 
