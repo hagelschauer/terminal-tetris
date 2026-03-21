@@ -1,18 +1,14 @@
+mod events;
 mod game_phase;
 mod game_renderer;
 mod game_state;
+mod terminal_guard;
 mod tetromino;
-mod events;
 
-use std::io::stdout;
 use std::time::{Duration, Instant};
 use std::vec;
 
-use crossterm::event::{
-    self, DisableMouseCapture, EnableMouseCapture,
-};
-
-use crossterm::execute;
+use crossterm::event;
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout};
 use ratatui::prelude::*;
@@ -22,42 +18,40 @@ use ratatui::widgets::{Block, BorderType, Borders, Clear};
 
 use crate::game_phase::GamePhase;
 use crate::game_state::GameState;
+use crate::terminal_guard::TerminalGuard;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    execute!(stdout(), EnableMouseCapture)?;
+    let mut terminal_guard = TerminalGuard::new()?;
 
-    ratatui::run(|terminal| {
-        let mut game_state = GameState::initial_state();
-        let mut gravity_rate = Duration::from_millis(1000);
-        let mut last_gravity_tick = Instant::now();
+    let mut game_state = GameState::initial_state();
+    let mut gravity_rate = Duration::from_millis(1000);
+    let mut last_gravity_tick = Instant::now();
 
-        while game_state.game_phase != GamePhase::Quitting {
-            terminal.draw(|frame| render(frame, &game_state))?;
+    while game_state.game_phase != GamePhase::Quitting {
+        terminal_guard
+            .terminal
+            .draw(|frame| render(frame, &game_state))?;
 
-            if game_state.game_phase == GamePhase::Running {
-                let timeout = gravity_rate
-                    .checked_sub(last_gravity_tick.elapsed())
-                    .unwrap_or(Duration::ZERO);
+        if game_state.game_phase == GamePhase::Running {
+            let timeout = gravity_rate
+                .checked_sub(last_gravity_tick.elapsed())
+                .unwrap_or(Duration::ZERO);
 
-                if event::poll(timeout)? {
-                    events::on_event(&mut game_state)?;
-                }
-
-                if last_gravity_tick.elapsed() >= gravity_rate {
-                    game_state.tick_gravity();
-                    last_gravity_tick = Instant::now();
-                }
-
-                gravity_rate = Duration::from_millis(1000 / (game_state.level() as u64))
-            } else {
+            if event::poll(timeout)? {
                 events::on_event(&mut game_state)?;
             }
+
+            if last_gravity_tick.elapsed() >= gravity_rate {
+                game_state.tick_gravity();
+                last_gravity_tick = Instant::now();
+            }
+
+            gravity_rate = Duration::from_millis(1000 / (game_state.level() as u64))
+        } else {
+            events::on_event(&mut game_state)?;
         }
+    }
 
-        Ok::<(), Box<dyn std::error::Error>>(())
-    })?;
-
-    execute!(stdout(), DisableMouseCapture)?;
     Ok(())
 }
 
