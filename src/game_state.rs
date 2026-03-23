@@ -65,7 +65,7 @@ impl GameState {
             self.rotation -= 1;
         }
 
-        if self.detect_collision() {
+        if self.detect_collision() && !self.wallkick() {    
             self.rotation = old_rotation;
         }
     }
@@ -78,9 +78,21 @@ impl GameState {
             self.rotation += 1;
         }
 
-        if self.detect_collision() {
+        if self.detect_collision() && !self.wallkick() {    
             self.rotation = old_rotation;
         }
+    }
+
+    // returns true if wallkick was successful, false otherwise
+    fn wallkick(&mut self) -> bool {
+        for dx in [-1, 1, -2, 2] {
+            if !self.collides_at_rel(dx, 0) {
+                self.position.0 += dx;
+                return true;
+            }
+        }
+
+        false
     }
 
     pub fn move_left(&mut self) {
