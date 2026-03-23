@@ -12,6 +12,8 @@ pub const BOARD_HEIGHT: usize = 20;
 pub const NEXT_WIDTH: usize = 4;
 pub const NEXT_HEIGHT: usize = 4;
 
+const INITIAL_POSITION: (i16, i16) = (3, 0);
+
 pub struct GameState {
     pub game_phase: GamePhase,
     pub board: [[u8; BOARD_WIDTH]; BOARD_HEIGHT],
@@ -38,7 +40,7 @@ impl GameState {
             next: rng.random_range(1..N_TETROMINOS),
             active_tetromino: rng.random_range(1..=N_TETROMINOS),
             rotation: 0,
-            position: (3, -4),
+            position: INITIAL_POSITION,
             lines: 0,
             score: 0,
             rng,
@@ -82,19 +84,19 @@ impl GameState {
     }
 
     pub fn move_left(&mut self) {
-        if !self.collides_at(-1, 0) {
+        if !self.collides_at_rel(-1, 0) {
             self.position.0 -= 1;
         }
     }
 
     pub fn move_right(&mut self) {
-        if !self.collides_at(1, 0) {
+        if !self.collides_at_rel(1, 0) {
             self.position.0 += 1;
         }
     }
 
     pub fn tick_gravity(&mut self) {
-        if self.collides_at(0, 1) {
+        if self.collides_at_rel(0, 1) {
             let cell_outside_board = self.handle_ground_contact();
             if cell_outside_board {
                 self.game_phase = GamePhase::GameOver;
@@ -106,7 +108,7 @@ impl GameState {
     }
 
     pub fn drop(&mut self) {
-        while !self.collides_at(0, 1) {
+        while !self.collides_at_rel(0, 1) {
             self.position.1 += 1;
         }
         let cell_outside_board = self.handle_ground_contact();
@@ -130,10 +132,10 @@ impl GameState {
     }
 
     fn detect_collision(&self) -> bool {
-        self.collides_at(0, 0)
+        self.collides_at_rel(0, 0)
     }
 
-    fn collides_at(&self, dx: i16, dy: i16) -> bool {
+    fn collides_at_rel(&self, dx: i16, dy: i16) -> bool {
         for (x, y) in self.active_cells() {
             let x = x + dx;
             let y = y + dy;
@@ -190,7 +192,11 @@ impl GameState {
     fn swap_next(&mut self) {
         self.active_tetromino = self.next;
         self.rotation = 0;
-        self.position = (3, -4);
+        self.position = INITIAL_POSITION;
+        // If the spawn-position is occupied, move upward until there is space
+        while self.detect_collision() {
+            self.position.1 -= 1;
+        }
         self.gen_next();
     }
 
@@ -204,7 +210,7 @@ impl GameState {
         let mut test_offset = 0;
 
         loop {
-            if self.collides_at(0, test_offset + 1) {
+            if self.collides_at_rel(0, test_offset + 1) {
                 break test_offset;
             }
             test_offset += 1;
