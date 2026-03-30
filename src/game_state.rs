@@ -34,10 +34,10 @@ impl GameState {
     pub fn initial_state() -> Self {
         let mut rng = rng();
 
-        Self {
+        let mut result = Self {
             game_phase: GamePhase::Running,
             board: [[0; BOARD_WIDTH]; BOARD_HEIGHT],
-            next: rng.random_range(1..N_TETROMINOS),
+            next: 0,
             active_tetromino: rng.random_range(1..=N_TETROMINOS),
             rotation: 0,
             position: INITIAL_POSITION,
@@ -45,7 +45,11 @@ impl GameState {
             score: 0,
             rng,
             last_gravity_tick: Instant::now(),
-        }
+        };
+
+        result.gen_next();
+
+        result
     }
 
     pub fn level(&self) -> u32 {
@@ -65,7 +69,7 @@ impl GameState {
             self.rotation -= 1;
         }
 
-        if self.detect_collision() && !self.wallkick() {    
+        if self.detect_collision() && !self.wallkick() {
             self.rotation = old_rotation;
         }
     }
@@ -78,7 +82,7 @@ impl GameState {
             self.rotation += 1;
         }
 
-        if self.detect_collision() && !self.wallkick() {    
+        if self.detect_collision() && !self.wallkick() {
             self.rotation = old_rotation;
         }
     }
@@ -199,6 +203,10 @@ impl GameState {
 
     fn gen_next(&mut self) {
         self.next = self.rng.random_range(1..N_TETROMINOS);
+        // Prevent two identical ones from being generated right after each other.
+        if self.next == self.active_tetromino {
+            self.next = ((self.next + 1) % (N_TETROMINOS - 1)) + 1
+        }
     }
 
     fn swap_next(&mut self) {
